@@ -9,14 +9,14 @@ Follow these steps to install the custom nodes and their dependencies.
 ### 1. Place the Custom Nodes
 
 Navigate to your ComfyUI installation directory. Locate the `custom_nodes` folder.
-Place the entire `1_Comfyui_LBT` folder (which contains this README) into the `ComfyUI/custom_nodes/` directory.
+Place the entire `Comfyui_LBT` folder (which contains this README) into the `ComfyUI/custom_nodes/` directory.
 
 Your directory structure should look like this:
 
 ```
 ComfyUI/
 └── custom_nodes/
-    └── 1_Comfyui_LBT/
+    └── Comfyui_LBT/
         ├── __init__.py
         ├── requirements.txt
         └── src/
@@ -39,7 +39,7 @@ Ensure you are in the Python environment used by your ComfyUI installation. This
 Once your environment is activated, install the required packages using `pip`:
 
 ```bash
-pip install -r custom_nodes/1_Comfyui_LBT/requirements.txt
+pip install -r custom_nodes/Comfyui_LBT/requirements.txt
 ```
 
 ### 3. Restart ComfyUI
@@ -48,7 +48,6 @@ After installing the dependencies, you **must** restart your ComfyUI application
 
 ## Node List
 
-Once installed and ComfyUI is restarted, you can find these nodes in the ComfyUI interface by right-clicking on the canvas.
 
 ### 1. Load Image From Folder (LBT)
 
