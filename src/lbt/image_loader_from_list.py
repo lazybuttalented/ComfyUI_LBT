@@ -15,7 +15,7 @@ class LBT_LoadImagesFromList:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "lbt_list": ("LBT_LIST",),
+                "lbt_list": ("LBTlist",),
                 "folder_path": ("STRING", {"default": "E:\\ComfyUI\\input"}),
                 "resize_mode": (["Pad", "Crop", "Stretch", "None"],),
             },
