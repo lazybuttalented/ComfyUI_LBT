@@ -16,6 +16,7 @@ class LBT_SaveImage:
                 "filename_text": ("STRING", {"multiline": False, "default": "image_01"}),
                 "save_path": ("STRING", {"default": folder_paths.get_output_directory()}),
                 "mode": (["Relative", "Absolute"],),
+                "overwrite": ("BOOLEAN", {"default": False}),
             },
             "optional": {
                 "format": (["png", "jpg", "jpeg", "bmp", "webp"],),
@@ -27,9 +28,18 @@ class LBT_SaveImage:
     OUTPUT_NODE = True
     CATEGORY = "LBT"
 
-    def save_images(self, images, filename_text, save_path, mode, format="png"):
+    def save_images(self, images, filename_text, save_path, mode, overwrite=False, format="png"):
         if not os.path.isdir(save_path):
             os.makedirs(save_path, exist_ok=True)
+
+        # Map common extensions to Pillow's internal format names
+        format_map = {
+            "jpg": "JPEG",
+            "jpeg": "JPEG",
+            "png": "PNG",
+            "bmp": "BMP",
+            "webp": "WEBP",
+        }
 
         for i, image in enumerate(images):
             image = image.cpu().numpy()
@@ -41,6 +51,7 @@ class LBT_SaveImage:
                 current_filename = filenames[i % len(filenames)]
                 
                 file_path = os.path.join(save_path, f"{current_filename}.{format}")
+                save_format = format_map.get(format, format).upper()
 
             elif mode == 'Absolute':
                 # In absolute mode, filename_text is expected to be the full filename with extension
@@ -50,21 +61,13 @@ class LBT_SaveImage:
                 # Extract extension from the filename_text
                 _, ext = os.path.splitext(current_full_filename)
                 # Remove the leading dot from the extension
-                save_format = ext[1:].lower() if ext else "png" # Default to png if no extension
+                file_ext = ext[1:].lower() if ext else "png" # Default to png if no extension
                 
-                # Map common extensions to Pillow's internal format names
-                format_map = {
-                    "jpg": "JPEG",
-                    "jpeg": "JPEG",
-                    "png": "PNG",
-                    "bmp": "BMP",
-                    "webp": "WEBP",
-                }
-                save_format = format_map.get(save_format, save_format).upper() # Ensure it's uppercase for Pillow
+                save_format = format_map.get(file_ext, file_ext).upper() # Ensure it's uppercase for Pillow
 
                 file_path = os.path.join(save_path, current_full_filename)
             
-            if os.path.exists(file_path):
+            if not overwrite and os.path.exists(file_path):
                 raise FileExistsError(f"File already exists, saving aborted: {file_path}")
 
             try:
