@@ -16,6 +16,7 @@ class LBT_SaveImage:
                 "filename_text": ("STRING", {"multiline": False, "default": "image_01"}),
                 "save_path": ("STRING", {"default": folder_paths.get_output_directory()}),
                 "mode": (["Relative", "Absolute"],),
+                "image_sequence": ("BOOLEAN", {"default": True}),
                 "overwrite": ("BOOLEAN", {"default": False}),
             },
             "optional": {
@@ -28,7 +29,7 @@ class LBT_SaveImage:
     OUTPUT_NODE = True
     CATEGORY = "LBT"
 
-    def save_images(self, images, filename_text, save_path, mode, overwrite=False, format="png"):
+    def save_images(self, images, filename_text, save_path, mode, image_sequence, overwrite=False, format="png"):
         if not os.path.isdir(save_path):
             os.makedirs(save_path, exist_ok=True)
 
@@ -41,34 +42,58 @@ class LBT_SaveImage:
             "webp": "WEBP",
         }
 
-        for i, image in enumerate(images):
+        images_to_save = images if image_sequence else images[0:1]
+
+        for i, image in enumerate(images_to_save):
             image = image.cpu().numpy()
             image = (image * 255).astype(np.uint8)
             pil_image = Image.fromarray(image)
 
             if mode == 'Relative':
                 filenames = filename_text.split('\n') if '\n' in filename_text else [filename_text]
-                current_filename = filenames[i % len(filenames)]
+                base_filename = filenames[i % len(filenames)]
+
+                if image_sequence and len(images_to_save) > 1:
+                    final_filename = f"{base_filename}_{i:04d}"
+                else:
+                    final_filename = base_filename
                 
-                file_path = os.path.join(save_path, f"{current_filename}.{format}")
+                file_path = os.path.join(save_path, f"{final_filename}.{format}")
                 save_format = format_map.get(format, format).upper()
 
             elif mode == 'Absolute':
-                # In absolute mode, filename_text is expected to be the full filename with extension
                 filenames = filename_text.split('\n') if '\n' in filename_text else [filename_text]
                 current_full_filename = filenames[i % len(filenames)]
                 
-                # Extract extension from the filename_text
-                _, ext = os.path.splitext(current_full_filename)
-                # Remove the leading dot from the extension
-                file_ext = ext[1:].lower() if ext else "png" # Default to png if no extension
-                
-                save_format = format_map.get(file_ext, file_ext).upper() # Ensure it's uppercase for Pillow
+                if image_sequence and len(images_to_save) > 1:
+                    name, ext = os.path.splitext(current_full_filename)
+                    final_full_filename = f"{name}_{i:04d}{ext}"
+                else:
+                    final_full_filename = current_full_filename
 
-                file_path = os.path.join(save_path, current_full_filename)
+                _, ext = os.path.splitext(final_full_filename)
+                file_ext = ext[1:].lower() if ext else "png"
+                save_format = format_map.get(file_ext, file_ext).upper()
+                file_path = os.path.join(save_path, final_full_filename)
             
             if not overwrite and os.path.exists(file_path):
-                raise FileExistsError(f"File already exists, saving aborted: {file_path}")
+                # Find a new filename by appending a number
+                counter = 1
+                while os.path.exists(file_path):
+                    if mode == 'Relative':
+                        if image_sequence and len(images_to_save) > 1:
+                            new_filename = f"{base_filename}_{i:04d}_{counter}"
+                        else:
+                            new_filename = f"{base_filename}_{counter}"
+                        file_path = os.path.join(save_path, f"{new_filename}.{format}")
+                    elif mode == 'Absolute':
+                        name, ext = os.path.splitext(current_full_filename)
+                        if image_sequence and len(images_to_save) > 1:
+                            new_filename = f"{name}_{i:04d}_{counter}{ext}"
+                        else:
+                            new_filename = f"{name}_{counter}{ext}"
+                        file_path = os.path.join(save_path, new_filename)
+                    counter += 1
 
             try:
                 print(f"LBT_SaveImage: Attempting to save to: {file_path} with format: {save_format}")

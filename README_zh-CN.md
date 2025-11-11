@@ -67,8 +67,12 @@ pip install -r custom_nodes/1_Comfyui_LBT/requirements.txt
     - `模式 (mode)` (ENUM: `Relative` (相对), `Absolute` (绝对)):
         - `Relative` (相对): 使用 `文件名称 (filename_text)` 作为基础名称，并附加所选的 `格式 (format)` 扩展名。
         - `Absolute` (绝对): 使用 `文件名称 (filename_text)` 作为完整文件名（包含扩展名），并自动从中检测保存格式。`保存路径 (save_path)` 仍作为基础目录使用。
+    - `图像序列 (image_sequence)` (BOOLEAN):
+        - `True` (默认): 将批次中的每张图片保存为带编号的序列 (例如, `filename_0000.png`, `filename_0001.png`)。
+        - `False`: 仅保存批次中的第一张图片。
+    - `覆盖 (overwrite)` (BOOLEAN): 如果为 `True`，则覆盖现有文件。如果为 `False`，且文件已存在，节点会自动通过附加数字来寻找新的文件名。
     - `格式 (format)` (OPTIONAL ENUM: `png`, `jpg`, `jpeg`, `bmp`, `webp`): 保存的图片格式。仅在 `Relative` (相对) 模式下使用。
-- **行为 (Behavior):** 如果目标路径下已存在同名文件，节点将报错以防止覆盖。
+- **行为 (Behavior):** 如果 `覆盖 (overwrite)` 设置为 `False` 且目标路径下已存在同名文件，节点将自动寻找新的文件名 (例如, `filename_1.png`, `filename_2.png`) 以防止覆盖。
 
 ### 3. 获取文件夹信息 (Get Folder Info (LBT))
 

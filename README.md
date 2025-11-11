@@ -72,8 +72,12 @@ After installing the dependencies, you **must** restart your ComfyUI application
     - `mode` (ENUM: `Relative`, `Absolute`):
         - `Relative`: Uses `filename_text` as the base name and appends the chosen `format` extension.
         - `Absolute`: Uses `filename_text` as the full filename (including extension) and automatically detects the save format from it. `save_path` is still used as the base directory.
+    - `image_sequence` (BOOLEAN): 
+        - `True` (default): Saves each image in the batch as a numbered sequence (e.g., `filename_0000.png`, `filename_0001.png`).
+        - `False`: Saves only the first image from the batch.
+    - `overwrite` (BOOLEAN): If `True`, overwrites existing files. If `False`, it will find a new name by appending a number if the file already exists.
     - `format` (OPTIONAL ENUM: `png`, `jpg`, `jpeg`, `bmp`, `webp`): The image format to save as. Only used in `Relative` mode.
-- **Behavior:** If a file with the same name already exists at the target path, the node will raise an error to prevent overwriting.
+- **Behavior:** If `overwrite` is set to `False` and a file with the same name already exists, the node will automatically find a new name (e.g., `filename_1.png`, `filename_2.png`) to prevent overwriting.
 
 ### 3. Get Folder Info (LBT)
 
