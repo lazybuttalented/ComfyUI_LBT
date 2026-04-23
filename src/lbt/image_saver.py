@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import numpy as np
 from PIL import Image
@@ -28,6 +29,13 @@ class LBT_SaveImage:
     FUNCTION = "save_images"
     OUTPUT_NODE = True
     CATEGORY = "LBT"
+
+    @classmethod
+    def IS_CHANGED(cls, images, filename_text, save_path, mode, image_sequence, overwrite=False, format="png"):
+        # 当 overwrite=True 时，每次都返回不同的值，强制跳过缓存重新执行
+        if overwrite:
+            return time.time()
+        return False
 
     def save_images(self, images, filename_text, save_path, mode, image_sequence, overwrite=False, format="png"):
         if not os.path.isdir(save_path):
