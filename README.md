@@ -16,16 +16,31 @@ Your directory structure should look like this:
 ```
 ComfyUI/
 └── custom_nodes/
-    └── Comfyui_LBT/
+    └── 1_Comfyui_LBT/          # or "Comfyui_LBT/" depending on install method
         ├── __init__.py
         ├── requirements.txt
+        ├── web/
+        │   └── js/
         └── src/
             └── lbt/
+                ├── boolean_and.py
+                ├── combine_from_list.py
+                ├── crop_by_mask.py
                 ├── folder_info.py
+                ├── image_combiner.py
                 ├── image_loader.py
+                ├── image_loader_from_list.py
+                ├── image_loader_from_path.py
                 ├── image_saver.py
+                ├── list_info.py
+                ├── multiline_text_loader.py
+                ├── string_to_list.py
+                ├── switch_no_pause.py
+                ├── text_image_comparison.py
+                ├── text_keyword_match.py
                 ├── text_loader.py
-                └── video_loader.py
+                ├── video_loader.py
+                └── video_saver.py
 ```
 
 ### 2. Install Dependencies
@@ -179,6 +194,91 @@ After installing the dependencies, you **must** restart your ComfyUI application
     - `total_mentions` (INT): The total number of times any image from the library was mentioned in the text.
 - **Behavior:** The search is case-insensitive and matches whole words only.
 
+
+### 11. Load Multiline Text (LBT)
+
+- **Description:** Loads a text file from ComfyUI's input directory and splits it into multiple prompts by blank lines.
+- **Inputs:**
+    - `file` (FILE): A `.txt` file from the ComfyUI input directory.
+- **Outputs:**
+    - `prompt_batch` (STRING): All prompts joined by newlines.
+    - `count` (INT): Number of prompts found.
+    - `full_filename` (STRING): The full filename.
+    - `filename_no_ext` (STRING): The filename without extension.
+
+### 12. Convert String to List (LBT)
+
+- **Description:** Converts a formatted string into a list of strings (LBTlist). The input must be in the format: `"count, item1, item2, ..."`.
+- **Inputs:**
+    - `text` (STRING): A comma-separated string with the first value being the item count.
+- **Outputs:**
+    - `lbt_list` (LBT_LIST): A list of strings.
+- **Note:** The count in the string must match the actual number of items.
+
+### 13. Get List Info (LBT)
+
+- **Description:** Returns the size of an LBTlist and passes the list through.
+- **Inputs:**
+    - `lbt_list` (LBT_LIST): The input list.
+- **Outputs:**
+    - `count` (INT): Number of items in the list.
+    - `lbt_list` (LBT_LIST): The original list.
+
+### 14. Load Image from Path (LBT)
+
+- **Description:** Loads an image from a given file path. If the file exists, returns the image and `True`; otherwise returns a 100×100 white placeholder image and `False`.
+- **Inputs:**
+    - `file_path` (STRING): Absolute path to the image file.
+- **Outputs:**
+    - `image` (IMAGE): The loaded image or a white placeholder.
+    - `file_exists` (BOOLEAN): Whether the file was found.
+
+### 15. Boolean AND (LBT)
+
+- **Description:** Performs a logical AND operation on multiple boolean inputs. Supports 2 to 32 inputs. Unconnected inputs default to `True`.
+- **Inputs:**
+    - `input_count` (INT): Number of boolean inputs to evaluate (2–32).
+    - `bool_1` ~ `bool_32` (BOOLEAN): Boolean values to AND together.
+- **Outputs:**
+    - `result` (BOOLEAN): `True` if all inputs are `True`, otherwise `False`.
+
+### 16. Text Keyword Match (LBT)
+
+- **Description:** Checks whether any of the given keywords appear in the input text. Case-insensitive by default.
+- **Inputs:**
+    - `text` (STRING): The text to search in.
+    - `keywords` (STRING): Comma-separated keywords (e.g., `"cat, dog, bird"`).
+    - `case_sensitive` (BOOLEAN): If `True`, matching is case-sensitive.
+- **Outputs:**
+    - `matched` (BOOLEAN): `True` if at least one keyword is found.
+
+### 17. Save Video (LBT)
+
+- **Description:** Saves a batch of image frames as an animated video file (gif/webp/mp4/avi/...). Based on VideoHelperSuite's VideoCombine with custom path handling and overwrite options.
+- **Inputs:**
+    - `images` (IMAGE): The image frames to save as a video.
+    - `frame_rate` (FLOAT): Video frame rate (1–120 FPS, default 8).
+    - `loop_count` (INT): Number of loops for gif/webp (0 = infinite).
+    - `filename_text` (STRING): Output filename (without extension).
+    - `save_path` (STRING): Directory to save the video.
+    - `format` (ENUM): Output format (gif/webp/mp4/etc.), uses VHS video_formats.
+    - `pingpong` (BOOLEAN): If `True`, plays the video forward then backward.
+    - `overwrite` (BOOLEAN): If `True`, replaces existing files; otherwise auto-increments.
+    - `audio` (OPTIONAL AUDIO): Audio track to mux into the video.
+- **Outputs:**
+    - `filepath` (STRING): Path to the saved video.
+- **Note:** Requires `ffmpeg` or `imageio-ffmpeg` for video encoding (except gif/webp which use Pillow).
+
+### 18. Switch No Pause (LBT)
+
+- **Description:** A boolean-controlled switch that never pauses the workflow when the inactive branch is disconnected or encountered an error. Unlike the native Switch node, this gracefully handles missing connections.
+- **Inputs:**
+    - `boolean` (BOOLEAN): Selector — `True` forwards `on_true`, `False` forwards `on_false`.
+    - `on_true` (ANY, optional): Value forwarded when boolean is `True`.
+    - `on_false` (ANY, optional): Value forwarded when boolean is `False`.
+- **Outputs:**
+    - `output` (ANY): The selected value, or `None` if that branch is absent.
+- **Note:** Both branches are lazy and optional — the workflow continues even if the inactive branch is disconnected or errored.
 
 ## Troubleshooting
 

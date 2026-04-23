@@ -16,12 +16,31 @@
 ```
 ComfyUI/
 └── custom_nodes/
-    └── 1_Comfyui_LBT/
+    └── 1_Comfyui_LBT/          # 或 "Comfyui_LBT/"，取决于安装方式
         ├── __init__.py
         ├── requirements.txt
+        ├── web/
+        │   └── js/
         └── src/
             └── lbt/
-                ├── ... (节点文件)
+                ├── boolean_and.py        # 布尔与节点
+                ├── combine_from_list.py   # 从列表合并图片
+                ├── crop_by_mask.py       # 根据遮罩裁剪图片
+                ├── folder_info.py         # 获取文件夹信息
+                ├── image_combiner.py      # 从批次合并图片
+                ├── image_loader.py       # 从文件夹加载图片
+                ├── image_loader_from_list.py  # 从列表加载图片
+                ├── image_loader_from_path.py  # 从路径加载图片
+                ├── image_saver.py         # 保存图片
+                ├── list_info.py           # 获取列表信息
+                ├── multiline_text_loader.py  # 加载多行文本
+                ├── string_to_list.py      # 字符串转列表
+                ├── switch_no_pause.py     # 开关无暂停
+                ├── text_image_comparison.py   # 文本与图片库比对
+                ├── text_keyword_match.py  # 文本关键词匹配
+                ├── text_loader.py         # 从文件夹加载文本
+                ├── video_loader.py        # 从文件夹加载视频
+                └── video_saver.py         # 保存视频
 ```
 
 ### 2. 安装依赖项
@@ -172,6 +191,91 @@ pip install -r custom_nodes/1_Comfyui_LBT/requirements.txt
     - `总提及次数 (total_mentions)` (INT): 图片库中所有图片在文本中被提及的总次数。
 - **行为 (Behavior):** 搜索不区分大小写，且仅匹配整个单词。
 
+
+### 11. 加载多行文本 (Load Multiline Text (LBT))
+
+- **描述 (Description):** 从 ComfyUI 的 input 目录加载文本文件，并按空行分割为多个提示词。
+- **输入 (Inputs):**
+    - `文件 (file)` (FILE): ComfyUI input 目录下的 `.txt` 文件。
+- **输出 (Outputs):**
+    - `提示词批次 (prompt_batch)` (STRING): 所有提示词以换行符连接。
+    - `数量 (count)` (INT): 找到的提示词数量。
+    - `完整文件名 (full_filename)` (STRING): 完整文件名。
+    - `无扩展名 (filename_no_ext)` (STRING): 不带扩展名的文件名。
+
+### 12. 字符串转列表 (Convert String to List (LBT))
+
+- **描述 (Description):** 将格式化的字符串转换为字符串列表（LBTlist）。输入格式为：`"数量, 项目1, 项目2, ..."`。
+- **输入 (Inputs):**
+    - `文本 (text)` (STRING): 逗号分隔的字符串，第一个值为项目数量。
+- **输出 (Outputs):**
+    - `LBT列表 (lbt_list)` (LBT_LIST): 字符串列表。
+- **注意 (Note):** 字符串中的数量必须与实际项目数量一致。
+
+### 13. 获取列表信息 (Get List Info (LBT))
+
+- **描述 (Description):** 返回 LBTlist 的大小并透传列表。
+- **输入 (Inputs):**
+    - `LBT列表 (lbt_list)` (LBT_LIST): 输入的列表。
+- **输出 (Outputs):**
+    - `数量 (count)` (INT): 列表中的项目数量。
+    - `LBT列表 (lbt_list)` (LBT_LIST): 原始列表。
+
+### 14. 从路径加载图片 (Load Image from Path (LBT))
+
+- **描述 (Description):** 从指定文件路径加载图片。如果文件存在，返回图片和 `True`；否则返回一个 100×100 白色占位图和 `False`。
+- **输入 (Inputs):**
+    - `文件路径 (file_path)` (STRING): 图片文件的绝对路径。
+- **输出 (Outputs):**
+    - `图像 (image)` (IMAGE): 加载的图片或白色占位图。
+    - `文件存在 (file_exists)` (BOOLEAN): 文件是否被找到。
+
+### 15. 布尔与 (Boolean AND (LBT))
+
+- **描述 (Description):** 对多个布尔输入执行逻辑与运算。支持 2 到 32 个输入。未连接的输入默认为 `True`。
+- **输入 (Inputs):**
+    - `输入数量 (input_count)` (INT): 要计算的布尔输入数量（2–32）。
+    - `布尔_1` ~ `布尔_32` (BOOLEAN): 要进行与运算的布尔值。
+- **输出 (Outputs):**
+    - `结果 (result)` (BOOLEAN): 所有输入都为 `True` 时返回 `True`，否则返回 `False`。
+
+### 16. 文本关键词匹配 (Text Keyword Match (LBT))
+
+- **描述 (Description):** 检查输入文本中是否包含指定的关键词。默认不区分大小写。
+- **输入 (Inputs):**
+    - `文本 (text)` (STRING): 要搜索的文本。
+    - `关键词 (keywords)` (STRING): 逗号分隔的关键词（例如，`"猫, 狗, 鸟"`）。
+    - `区分大小写 (case_sensitive)` (BOOLEAN): 如果为 `True`，则区分大小写。
+- **输出 (Outputs):**
+    - `匹配 (matched)` (BOOLEAN): 找到至少一个关键词时返回 `True`。
+
+### 17. 保存视频 (Save Video (LBT))
+
+- **描述 (Description):** 将一批图片帧保存为动画视频文件（gif/webp/mp4/avi/...）。基于 VideoHelperSuite 的 VideoCombine，支持自定义路径和覆盖选项。
+- **输入 (Inputs):**
+    - `图像 (images)` (IMAGE): 要保存为视频的图片帧。
+    - `帧率 (frame_rate)` (FLOAT): 视频帧率（1–120 FPS，默认 8）。
+    - `循环次数 (loop_count)` (INT): gif/webp 的循环次数（0 = 无限）。
+    - `文件名称 (filename_text)` (STRING): 输出文件名（不含扩展名）。
+    - `保存路径 (save_path)` (STRING): 保存视频的目录。
+    - `格式 (format)` (ENUM): 输出格式（gif/webp/mp4 等），使用 VHS video_formats。
+    - `乒乓播放 (pingpong)` (BOOLEAN): 如果为 `True`，视频先正向播放再反向播放。
+    - `覆盖 (overwrite)` (BOOLEAN): 如果为 `True`，覆盖现有文件；否则自动递增编号。
+    - `音频 (audio)` (OPTIONAL AUDIO): 要混入视频的音轨。
+- **输出 (Outputs):**
+    - `文件路径 (filepath)` (STRING): 保存的视频路径。
+- **注意 (Note):** 视频编码需要 `ffmpeg` 或 `imageio-ffmpeg`（gif/webp 使用 Pillow，无需 ffmpeg）。
+
+### 18. 开关无暂停 (Switch No Pause (LBT))
+
+- **描述 (Description):** 一个布尔值控制的开关，与原生 Switch 节点不同的是：当非活动分支断连或出错时，不会暂停工作流。优雅地处理缺失的连接。
+- **输入 (Inputs):**
+    - `布尔值 (boolean)` (BOOLEAN): 选择器 — `True` 转发 `真分支`，`False` 转发 `假分支`。
+    - `真分支 (on_true)` (ANY, optional): 布尔值为 `True` 时转发的值。
+    - `假分支 (on_false)` (ANY, optional): 布尔值为 `False` 时转发的值。
+- **输出 (Outputs):**
+    - `输出 (output)` (ANY): 选中的值，如果该分支不存在则为 `None`。
+- **注意 (Note):** 两个分支都是 lazy 和 optional 的 — 即使非活动分支断连或出错，工作流也会继续执行。
 
 ## 故障排查
 
