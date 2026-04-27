@@ -32,14 +32,8 @@ class LBT_ShowTextEditable:
             "required": {
                 "text": ("STRING", {"forceInput": True}),
             },
-            "optional": {
-                # text_edit is the editable widget value sent from the frontend.
-                # It is NOT shown as a socket; the frontend serialises it into
-                # the prompt as a widget value.
-                "text_edit": ("STRING", {"multiline": True, "default": ""}),
-            },
             "hidden": {
-                "unique_id":    "UNIQUE_ID",
+                "unique_id":     "UNIQUE_ID",
                 "extra_pnginfo": "EXTRA_PNGINFO",
             },
         }
@@ -53,11 +47,16 @@ class LBT_ShowTextEditable:
     def execute(
         self,
         text: str,
-        text_edit: str = "",
         unique_id=None,
         extra_pnginfo=None,
     ):
-        # ── Persist widget values into the saved workflow ─────────────────
+        # ── Read text_edit from the saved workflow (widgets_values[1]) ────
+        # text_edit is NOT declared in INPUT_TYPES so ComfyUI won't auto-render
+        # a widget for it. The frontend creates it manually and serialises its
+        # value into widgets_values[1]. We recover it here for the output.
+        text_edit = text  # fallback: mirror upstream on first run
+
+        workflow_node = None
         if unique_id is not None and extra_pnginfo is not None:
             if (
                 isinstance(extra_pnginfo, list)
@@ -65,22 +64,29 @@ class LBT_ShowTextEditable:
                 and "workflow" in extra_pnginfo[0]
             ):
                 workflow = extra_pnginfo[0]["workflow"]
-                node = next(
+                workflow_node = next(
                     (x for x in workflow["nodes"]
                      if str(x["id"]) == str(unique_id)),
                     None,
                 )
-                if node is not None:
-                    # widgets_values layout expected by the frontend:
-                    #   [0] = last upstream text  (used to detect changes)
-                    #   [1] = text_edit value     (the editable box content)
-                    node["widgets_values"] = [text, text_edit]
+
+        if workflow_node is not None:
+            wv = workflow_node.get("widgets_values", [])
+            # widgets_values layout (set by the frontend):
+            #   [0] = last upstream text  (for change detection)
+            #   [1] = text_edit content   (user-edited)
+            if len(wv) >= 2:
+                text_edit = wv[1]
+
+            # Persist the updated last-upstream value back so the frontend
+            # can detect changes correctly on the next load.
+            workflow_node["widgets_values"] = [text, text_edit]
 
         # ── Send data back to the frontend for display update ─────────────
         return {
             "ui": {
-                # "text" is consumed by the frontend to refresh text_display
-                # and decide whether to overwrite text_edit.
+                # Consumed by the frontend to refresh text_display and decide
+                # whether to overwrite text_edit.
                 "text": [text],
             },
             "result": (text, text_edit),
