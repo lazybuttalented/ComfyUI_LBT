@@ -16,6 +16,7 @@ from .src.lbt.boolean_and import NODE_CLASS_MAPPINGS as boolean_and_NCM
 from .src.lbt.text_keyword_match import NODE_CLASS_MAPPINGS as text_keyword_match_NCM
 from .src.lbt.video_saver import NODE_CLASS_MAPPINGS as video_saver_NCM
 from .src.lbt.switch_no_pause import NODE_CLASS_MAPPINGS as switch_no_pause_NCM
+from .src.lbt.show_text_editable import NODE_CLASS_MAPPINGS as show_text_editable_NCM
 
 WEB_DIRECTORY = "./web"
 
@@ -38,6 +39,7 @@ NODE_CLASS_MAPPINGS = {
     **text_keyword_match_NCM,
     **video_saver_NCM,
     **switch_no_pause_NCM,
+    **show_text_editable_NCM,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -60,4 +62,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LBT_TextKeywordMatch": "Text Keyword Match (LBT)",
     "LBT_SaveVideo": "Save Video (LBT)",
     "LBT_SwitchNoPause": "Switch No Pause (LBT)",
+    "LBT_ShowTextEditable": "Show Text Editable (LBT)",
 }
