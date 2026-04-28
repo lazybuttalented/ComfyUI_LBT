@@ -1,24 +1,32 @@
 /**
  * LBT Show Text Editable
  *
- * Node layout (widgets in order):
- *   [0]  text_display  — read-only preview, mirrors upstream `text`, not serialised
- *   [1]  text_edit     — editable multiline box, serialised as widgets_values[1]
+ * Value pipeline:
+ *   upstream text  →  [backend]  →  ui.text
+ *                                      ↓
+ *                              text_display (read-only, index 0)
  *
- * Behaviour:
- *   • On every execution (onExecuted):
- *       - Always refresh text_display with the new upstream value.
- *       - Overwrite text_edit ONLY when the new upstream value differs from
- *         the last upstream value seen (stored in node.__lbt_lastUpstream).
- *         This lets the user freely edit text_edit between runs that reuse
- *         the same upstream text.
- *   • On configure / load (onConfigure):
- *       - Restore text_display from widgets_values[0] (last upstream text).
- *       - Restore text_edit  from widgets_values[1] (last edited value).
+ *   user edits visible edit box
+ *       ↓  (on every input event + before prompt queued)
+ *   hidden auto widget "text_edit" (index 1, invisible)
+ *       ↓  (serialised by ComfyUI into prompt)
+ *   backend receives text_edit as normal function argument
+ *       ↓
+ *   text_edited output = text_edit value ✓
  *
- * widgets_values persisted by Python backend:
- *   [0] = last upstream text
- *   [1] = text_edit content
+ * Widget layout on the node:
+ *   [0]  text_display  — read-only preview   (custom, NOT serialised via hidden trick)
+ *   [1]  text_edit     — AUTO widget, hidden  (height=0, invisible; holds the value)
+ *   [2]  text_edit_vis — visible editable box (custom, syncs value into [1])
+ *
+ * widgets_values on save/load (managed by ComfyUI naturally):
+ *   [0] = text_edit hidden widget value  (= user-edited content)
+ *   [1] = text_display value             (= last upstream text, for change detection)
+ *
+ * NOTE: text_display is added BEFORE the auto widget, but ComfyUI only serialises
+ * widgets that exist at node definition time. We use serializeValue override on
+ * text_display to make it a no-op (return undefined / skip), and rely on the hidden
+ * auto widget for actual serialisation.
  */
 
 import { app } from "../../../scripts/app.js";
@@ -27,118 +35,135 @@ import { ComfyWidgets } from "../../../scripts/widgets.js";
 app.registerExtension({
     name: "LBT.ShowTextEditable",
 
-    async beforeRegisterNodeDef(nodeType, nodeData, _app) {
-        if (nodeData.name !== "LBT_ShowTextEditable") return;
+    async nodeCreated(node) {
+        if (node.comfyClass !== "LBT_ShowTextEditable") return;
 
-        // ── Helper: create or reuse the two fixed widgets ─────────────────
-        function ensureWidgets(node) {
-            // We always want exactly 2 widgets:
-            //   index 0 → text_display (read-only)
-            //   index 1 → text_edit    (editable)
-            // They may already exist after configure(); only create if missing.
+        // ── Locate the auto-generated text_edit widget (ComfyUI created it) ──
+        // It is the first (and only) widget at this point.
+        const autoWidget = node.widgets?.find(w => w.name === "text_edit");
+        if (!autoWidget) return;
 
-            if (!node.widgets) node.widgets = [];
-
-            // ── text_display (index 0) ────────────────────────────────────
-            if (!node.__lbt_display) {
-                const w = ComfyWidgets["STRING"](
-                    node,
-                    "text_display",
-                    ["STRING", { multiline: true, default: "" }],
-                    app
-                ).widget;
-                w.inputEl.readOnly    = true;
-                w.inputEl.style.opacity = "0.55";
-                w.inputEl.style.cursor  = "default";
-                w.inputEl.title = "Read-only preview of the upstream text input";
-                // Prevent the user accidentally typing in the read-only box
-                w.inputEl.addEventListener("keydown", (e) => e.preventDefault());
-                node.__lbt_display = w;
-            }
-
-            // ── text_edit (index 1) ───────────────────────────────────────
-            if (!node.__lbt_edit) {
-                const w = ComfyWidgets["STRING"](
-                    node,
-                    "text_edit",
-                    ["STRING", { multiline: true, default: "" }],
-                    app
-                ).widget;
-                w.inputEl.placeholder = "Edit text here…";
-                node.__lbt_edit = w;
-            }
+        // ── Hide the auto widget completely ───────────────────────────────────
+        // Setting computeSize to return [0,0] removes it from visual layout.
+        autoWidget.computeSize = () => [0, 0];
+        autoWidget.type = "converted-widget"; // prevents normal rendering
+        // Also hide the underlying DOM element if any
+        if (autoWidget.inputEl) {
+            autoWidget.inputEl.style.display = "none";
         }
 
-        // ── Helper: trigger canvas resize after widget changes ─────────────
-        function refreshSize(node) {
-            requestAnimationFrame(() => {
-                const sz = node.computeSize();
-                if (sz[0] < node.size[0]) sz[0] = node.size[0];
-                if (sz[1] < node.size[1]) sz[1] = node.size[1];
-                node.onResize?.(sz);
-                app.graph.setDirtyCanvas(true, false);
-            });
+        // ── Insert text_display BEFORE the auto widget ───────────────────────
+        const displayWidget = ComfyWidgets["STRING"](
+            node,
+            "text_display",
+            ["STRING", { multiline: true, default: "" }],
+            app
+        ).widget;
+        displayWidget.inputEl.readOnly = true;
+        displayWidget.inputEl.style.opacity = "0.55";
+        displayWidget.inputEl.style.cursor = "default";
+        displayWidget.inputEl.title = "Read-only preview of the upstream text";
+        displayWidget.inputEl.addEventListener("keydown", (e) => e.preventDefault());
+        // Move it to index 0 (before the auto widget)
+        const idx = node.widgets.indexOf(displayWidget);
+        const autoIdx = node.widgets.indexOf(autoWidget);
+        if (idx > 0) {
+            node.widgets.splice(idx, 1);
+            node.widgets.splice(0, 0, displayWidget);
         }
 
-        // ── onExecuted: called every time the backend finishes ─────────────
-        const _onExecuted = nodeType.prototype.onExecuted;
-        nodeType.prototype.onExecuted = function (message) {
-            _onExecuted?.apply(this, arguments);
+        // ── Create visible editable box AFTER the auto widget ────────────────
+        const editWidget = ComfyWidgets["STRING"](
+            node,
+            "text_edit_vis",
+            ["STRING", { multiline: true, default: "" }],
+            app
+        ).widget;
+        editWidget.inputEl.placeholder = "Edit text here…";
 
-            const newText = Array.isArray(message.text)
+        // Sync visible box → hidden auto widget on every keystroke
+        editWidget.inputEl.addEventListener("input", () => {
+            autoWidget.value = editWidget.value;
+        });
+
+        // Also sync on blur (safety net)
+        editWidget.inputEl.addEventListener("change", () => {
+            autoWidget.value = editWidget.value;
+        });
+
+        // ── Add reset button via node.addWidget (ComfyUI native API) ──────────
+        node.addWidget(
+            "button",
+            "↺ Reset to input",
+            null,
+            () => {
+                // node is a const in the outer closure — do NOT use `this` here
+                const upstream = node.__lbt_display?.value ?? "";
+                node.__lbt_edit.value = upstream;
+                node.__lbt_auto.value = upstream;
+            }
+        );
+
+        // Store refs
+        node.__lbt_display = displayWidget;
+        node.__lbt_edit    = editWidget;
+        node.__lbt_auto    = autoWidget;
+
+        // ── onExecuted: refresh display, conditionally overwrite edit box ─────
+        const _onExecuted = node.onExecuted?.bind(node);
+        node.onExecuted = function (message) {
+            _onExecuted?.(message);
+
+            const newText = Array.isArray(message?.text)
                 ? message.text[0]
-                : message.text;
+                : (message?.text ?? "");
 
-            ensureWidgets(this);
-
-            // Always update the read-only preview
+            // Always refresh the read-only preview
             this.__lbt_display.value = newText;
 
-            // Overwrite text_edit ONLY if upstream text has changed
-            const lastUpstream = this.__lbt_lastUpstream ?? null;
-            if (lastUpstream === null || lastUpstream !== newText) {
+            // Overwrite the visible edit box ONLY if upstream text changed
+            const last = this.__lbt_lastUpstream ?? null;
+            if (last === null || last !== newText) {
                 this.__lbt_edit.value = newText;
+                this.__lbt_auto.value = newText;  // keep hidden in sync too
             }
-            // Record the latest upstream value for next comparison
             this.__lbt_lastUpstream = newText;
 
-            refreshSize(this);
+            this._refreshSize();
         };
 
-        // ── configure: intercept before widgets are reset by new frontend ──
-        const VALUES = Symbol("lbt_ste_values");
+        // ── onConfigure: restore from saved widgets_values ────────────────────
+        const _onConfigure = node.onConfigure?.bind(node);
+        node.onConfigure = function (data) {
+            _onConfigure?.(data);
 
-        const _configure = nodeType.prototype.configure;
-        nodeType.prototype.configure = function () {
-            // Stash widget values before the base configure wipes them
-            this[VALUES] = arguments[0]?.widgets_values;
-            return _configure?.apply(this, arguments);
-        };
-
-        // ── onConfigure: restore widgets from saved values ─────────────────
-        const _onConfigure = nodeType.prototype.onConfigure;
-        nodeType.prototype.onConfigure = function () {
-            _onConfigure?.apply(this, arguments);
-
-            const wv = this[VALUES];
+            const wv = data?.widgets_values;
             if (!wv || wv.length === 0) return;
 
             requestAnimationFrame(() => {
-                ensureWidgets(this);
+                // widgets_values[0] = text_edit (hidden auto widget value = user-edited)
+                // widgets_values[1] = text_display value (last upstream)
+                const editedVal  = wv[0] ?? "";
+                const displayVal = wv[1] ?? "";
 
-                // widgets_values[0] = last upstream text (for display + change-detection)
-                // widgets_values[1] = text_edit value    (user-edited content)
-                const upstream = wv[0] ?? "";
-                const edited   = wv[1] ?? "";
+                if (this.__lbt_auto)    this.__lbt_auto.value    = editedVal;
+                if (this.__lbt_edit)    this.__lbt_edit.value    = editedVal;
+                if (this.__lbt_display) this.__lbt_display.value = displayVal;
+                this.__lbt_lastUpstream = displayVal;
 
-                this.__lbt_display.value    = upstream;
-                this.__lbt_edit.value       = edited;
-                this.__lbt_lastUpstream     = upstream;
-
-                refreshSize(this);
+                this._refreshSize();
             });
         };
 
-        // ── getExtraMenuOptions: nothing extra needed, but hook available ──
+        // ── Helper ────────────────────────────────────────────────────────────
+        node._refreshSize = function () {
+            requestAnimationFrame(() => {
+                const sz = this.computeSize();
+                if (sz[0] < this.size[0]) sz[0] = this.size[0];
+                if (sz[1] < this.size[1]) sz[1] = this.size[1];
+                this.onResize?.(sz);
+                app.graph.setDirtyCanvas(true, false);
+            });
+        };
     },
 });
